@@ -422,9 +422,9 @@ public class TBinaryProtocol extends TProtocol {
     int size = readI32();
 
     checkStringReadLength(size);
-    countConsumedMessageBytes(size);
 
     if (trans_.getBytesRemainingInBuffer() >= size) {
+      countConsumedMessageBytes(size);
       String s = new String(trans_.getBuffer(), trans_.getBufferPosition(),
           size, StandardCharsets.UTF_8);
       trans_.consumeBuffer(size);
