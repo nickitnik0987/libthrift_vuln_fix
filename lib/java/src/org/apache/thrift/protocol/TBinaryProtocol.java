@@ -25,6 +25,9 @@ import java.nio.charset.StandardCharsets;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Binary protocol implementation for thrift.
  *
@@ -32,6 +35,25 @@ import org.apache.thrift.transport.TTransport;
 public class TBinaryProtocol extends TProtocol {
   private static final TStruct ANONYMOUS_STRUCT = new TStruct();
   private static final long NO_LENGTH_LIMIT = -1;
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(TBinaryProtocol.class);
+
+  private static long getPositiveLongProperty(String name, long defaultValue) {
+      Long value = Long.getLong(name);
+      return (value == null || value <= 0) ? defaultValue : value;
+  }
+
+  private static final long DEFAULT_STRING_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.string.length", 100L * 1024 * 1024); // 100 MB
+  private static final long DEFAULT_CONTAINER_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.container.length", 1_000_000L);       // 1M elements
+  private static final long DEFAULT_MAX_MESSAGE_SIZE =
+      getPositiveLongProperty("thrift.max.message.size", 100L * 1024 * 1024); // 100 MB
+
+  static {
+      LOGGER.info("TBinaryProtocol limits: stringLength={} bytes, containerLength={} elements, maxMessageSize={} bytes",
+                  DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT, DEFAULT_MAX_MESSAGE_SIZE);
+  }
 
   protected static final int VERSION_MASK = 0xffff0000;
   protected static final int VERSION_1 = 0x80010000;

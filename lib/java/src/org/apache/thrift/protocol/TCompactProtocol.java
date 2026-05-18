@@ -27,6 +27,9 @@ import java.nio.charset.StandardCharsets;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * TCompactProtocol2 is the Java implementation of the compact protocol specified
  * in THRIFT-110. The fundamental approach to reducing the overhead of
@@ -41,6 +44,20 @@ public class TCompactProtocol extends TProtocol {
   private final static ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap(EMPTY_BYTES);
 
   private final static long NO_LENGTH_LIMIT = -1;
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(TCompactProtocol.class);
+
+  private static long getPositiveLongProperty(String name, long defaultValue) {
+      Long value = Long.getLong(name);
+      return (value == null || value <= 0) ? defaultValue : value;
+  }
+
+  private static final long DEFAULT_STRING_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.string.length", 100L * 1024 * 1024); // 100 MB
+  private static final long DEFAULT_CONTAINER_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.container.length", 1_000_000L);       // 1M elements
+  private static final long DEFAULT_MAX_MESSAGE_SIZE =
+      getPositiveLongProperty("thrift.max.message.size", 100L * 1024 * 1024); // 100 MB
 
   private final static TStruct ANONYMOUS_STRUCT = new TStruct("");
   private final static TField TSTOP = new TField("", TType.STOP, (short)0);
@@ -60,6 +77,8 @@ public class TCompactProtocol extends TProtocol {
     ttypeToCompactType[TType.SET] = Types.SET;
     ttypeToCompactType[TType.MAP] = Types.MAP;
     ttypeToCompactType[TType.STRUCT] = Types.STRUCT;
+    LOGGER.info("TCompactProtocol limits: stringLength={} bytes, containerLength={} elements, maxMessageSize={} bytes",
+                DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT, DEFAULT_MAX_MESSAGE_SIZE);
   }
 
   /**
