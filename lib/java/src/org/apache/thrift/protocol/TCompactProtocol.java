@@ -164,6 +164,8 @@ public class TCompactProtocol extends TProtocol {
    */
   private final long containerLengthLimit_;
 
+  private long consumedMessageBytes_;
+
   /**
    * Temporary buffer used for various operations that would otherwise require a
    * small allocation.
@@ -519,6 +521,7 @@ public class TCompactProtocol extends TProtocol {
    * Read a message header.
    */
   public TMessage readMessageBegin() throws TException {
+    consumedMessageBytes_ = 0;
     byte protocolId = readByte();
     if (protocolId != PROTOCOL_ID) {
       throw new TProtocolException("Expected protocol id " + Integer.toHexString(PROTOCOL_ID) + " but got " + Integer.toHexString(protocolId));
@@ -597,6 +600,7 @@ public class TCompactProtocol extends TProtocol {
   public TMap readMapBegin() throws TException {
     int size = readVarint32();
     checkContainerReadLength(size);
+    countConsumedMessageBytes((long) size * 2);
     byte keyAndValueType = size == 0 ? 0 : readByte();
     return new TMap(getTType((byte)(keyAndValueType >> 4)), getTType((byte)(keyAndValueType & 0xf)), size);
   }
@@ -614,6 +618,7 @@ public class TCompactProtocol extends TProtocol {
       size = readVarint32();
     }
     checkContainerReadLength(size);
+    countConsumedMessageBytes(size);
     byte type = getTType(size_and_type);
     return new TList(type, size);
   }
@@ -692,6 +697,7 @@ public class TCompactProtocol extends TProtocol {
   public String readString() throws TException {
     int length = readVarint32();
     checkStringReadLength(length);
+    countConsumedMessageBytes(length);
 
     if (length == 0) {
       return "";
@@ -714,6 +720,7 @@ public class TCompactProtocol extends TProtocol {
   public ByteBuffer readBinary() throws TException {
     int length = readVarint32();
     checkStringReadLength(length);
+    countConsumedMessageBytes(length);
     if (length == 0) return EMPTY_BUFFER;
 
     if (trans_.getBytesRemainingInBuffer() >= length) {
@@ -736,6 +743,15 @@ public class TCompactProtocol extends TProtocol {
     byte[] buf = new byte[length];
     trans_.readAll(buf, 0, length);
     return buf;
+  }
+
+  private void countConsumedMessageBytes(long numBytes) throws TProtocolException {
+      consumedMessageBytes_ += numBytes;
+      if (DEFAULT_MAX_MESSAGE_SIZE > 0 && consumedMessageBytes_ > DEFAULT_MAX_MESSAGE_SIZE) {
+          throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+              "Cumulative message size " + consumedMessageBytes_
+              + " exceeds limit " + DEFAULT_MAX_MESSAGE_SIZE);
+      }
   }
 
   private void checkStringReadLength(int length) throws TProtocolException {

@@ -71,6 +71,8 @@ public class TBinaryProtocol extends TProtocol {
    */
   private final long containerLengthLimit_;
 
+  private long consumedMessageBytes_;
+
   protected boolean strictRead_;
   protected boolean strictWrite_;
 
@@ -262,6 +264,7 @@ public class TBinaryProtocol extends TProtocol {
 
   @Override
   public TMessage readMessageBegin() throws TException {
+    consumedMessageBytes_ = 0;
     int size = readI32();
     if (size < 0) {
       int version = size & VERSION_MASK;
@@ -302,6 +305,7 @@ public class TBinaryProtocol extends TProtocol {
   public TMap readMapBegin() throws TException {
     TMap map = new TMap(readByte(), readByte(), readI32());
     checkContainerReadLength(map.size);
+    countConsumedMessageBytes((long) map.size * 2);
     return map;
   }
 
@@ -312,6 +316,7 @@ public class TBinaryProtocol extends TProtocol {
   public TList readListBegin() throws TException {
     TList list = new TList(readByte(), readI32());
     checkContainerReadLength(list.size);
+    countConsumedMessageBytes(list.size);
     return list;
   }
 
@@ -322,6 +327,7 @@ public class TBinaryProtocol extends TProtocol {
   public TSet readSetBegin() throws TException {
     TSet set = new TSet(readByte(), readI32());
     checkContainerReadLength(set.size);
+    countConsumedMessageBytes(set.size);
     return set;
   }
 
@@ -416,6 +422,7 @@ public class TBinaryProtocol extends TProtocol {
     int size = readI32();
 
     checkStringReadLength(size);
+    countConsumedMessageBytes(size);
 
     if (trans_.getBytesRemainingInBuffer() >= size) {
       String s = new String(trans_.getBuffer(), trans_.getBufferPosition(),
@@ -429,6 +436,7 @@ public class TBinaryProtocol extends TProtocol {
 
   public String readStringBody(int size) throws TException {
     checkStringReadLength(size);
+    countConsumedMessageBytes(size);
     byte[] buf = new byte[size];
     trans_.readAll(buf, 0, size);
     return new String(buf, StandardCharsets.UTF_8);
@@ -439,6 +447,7 @@ public class TBinaryProtocol extends TProtocol {
     int size = readI32();
 
     checkStringReadLength(size);
+    countConsumedMessageBytes(size);
 
     if (trans_.getBytesRemainingInBuffer() >= size) {
       ByteBuffer bb = ByteBuffer.wrap(trans_.getBuffer(), trans_.getBufferPosition(), size);
@@ -449,6 +458,15 @@ public class TBinaryProtocol extends TProtocol {
     byte[] buf = new byte[size];
     trans_.readAll(buf, 0, size);
     return ByteBuffer.wrap(buf);
+  }
+
+  private void countConsumedMessageBytes(long numBytes) throws TProtocolException {
+      consumedMessageBytes_ += numBytes;
+      if (DEFAULT_MAX_MESSAGE_SIZE > 0 && consumedMessageBytes_ > DEFAULT_MAX_MESSAGE_SIZE) {
+          throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+              "Cumulative message size " + consumedMessageBytes_
+              + " exceeds limit " + DEFAULT_MAX_MESSAGE_SIZE);
+      }
   }
 
   private void checkStringReadLength(int length) throws TProtocolException {
