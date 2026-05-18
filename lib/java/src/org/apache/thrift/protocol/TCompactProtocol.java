@@ -89,11 +89,11 @@ public class TCompactProtocol extends TProtocol {
     private final long containerLengthLimit_;
 
     public Factory() {
-      this(NO_LENGTH_LIMIT, NO_LENGTH_LIMIT);
+      this(DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
     }
 
     public Factory(long stringLengthLimit) {
-      this(stringLengthLimit, NO_LENGTH_LIMIT);
+      this(stringLengthLimit, DEFAULT_CONTAINER_LENGTH_LIMIT);
     }
 
     public Factory(long stringLengthLimit, long containerLengthLimit) {
@@ -195,7 +195,7 @@ public class TCompactProtocol extends TProtocol {
    */
   @Deprecated
   public TCompactProtocol(TTransport transport, long stringLengthLimit) {
-    this(transport, stringLengthLimit, NO_LENGTH_LIMIT);
+    this(transport, stringLengthLimit, DEFAULT_CONTAINER_LENGTH_LIMIT);
   }
 
   /**
@@ -204,7 +204,7 @@ public class TCompactProtocol extends TProtocol {
    * @param transport the TTransport object to read from or write to.
    */
   public TCompactProtocol(TTransport transport) {
-    this(transport, NO_LENGTH_LIMIT, NO_LENGTH_LIMIT);
+    this(transport, DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
   }
 
   @Override

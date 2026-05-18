@@ -86,11 +86,11 @@ public class TBinaryProtocol extends TProtocol {
     protected boolean strictWrite_;
 
     public Factory() {
-      this(false, true);
+      this(false, true, DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
     }
 
     public Factory(boolean strictRead, boolean strictWrite) {
-      this(strictRead, strictWrite, NO_LENGTH_LIMIT, NO_LENGTH_LIMIT);
+      this(strictRead, strictWrite, DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
     }
 
     public Factory(long stringLengthLimit, long containerLengthLimit) {
@@ -113,11 +113,11 @@ public class TBinaryProtocol extends TProtocol {
    * Constructor
    */
   public TBinaryProtocol(TTransport trans) {
-    this(trans, false, true);
+    this(trans, DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT, false, true);
   }
 
   public TBinaryProtocol(TTransport trans, boolean strictRead, boolean strictWrite) {
-    this(trans, NO_LENGTH_LIMIT, NO_LENGTH_LIMIT, strictRead, strictWrite);
+    this(trans, DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT, strictRead, strictWrite);
   }
 
   public TBinaryProtocol(TTransport trans, long stringLengthLimit, long containerLengthLimit) {
