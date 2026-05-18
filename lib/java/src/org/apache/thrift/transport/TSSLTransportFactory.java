@@ -35,6 +35,7 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.slf4j.Logger;
@@ -274,9 +275,21 @@ public class TSSLTransportFactory {
     try {
       SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
       socket.setSoTimeout(timeout);
+      SSLParameters sslParams = socket.getSSLParameters();
+      if (Boolean.parseBoolean(System.getProperty("thrift.ssl.verify.hostname", "true"))) {
+        sslParams.setEndpointIdentificationAlgorithm("HTTPS");
+        LOGGER.debug("TLS hostname verification enabled for host: {}", host);
+      } else {
+        LOGGER.warn("TLS hostname verification is DISABLED via -Dthrift.ssl.verify.hostname=false. "
+            + "This leaves the connection vulnerable to MITM attacks (CVE-2026-43869 / CVE-2026-41603).");
+      }
+      socket.setSSLParameters(sslParams);
       return new TSocket(socket);
+    } catch (TTransportException tte) {
+      throw tte;
     } catch (Exception e) {
-      throw new TTransportException("Could not connect to " + host + " on port " + port, e);
+      throw new TTransportException(
+          TTransportException.NOT_OPEN, "Could not connect to " + host + " on port " + port, e);
     }
   }
 
