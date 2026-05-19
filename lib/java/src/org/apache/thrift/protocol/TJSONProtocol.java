@@ -29,6 +29,9 @@ import org.apache.thrift.TByteArrayOutputStream;
 import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransport;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * JSON protocol implementation for thrift.
  *
@@ -100,6 +103,23 @@ public class TJSONProtocol extends TProtocol {
   private static final byte[] NAME_SET = new byte[] {'s','e','t'};
 
   private static final TStruct ANONYMOUS_STRUCT = new TStruct();
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(TJSONProtocol.class);
+
+  private static long getPositiveLongProperty(String name, long defaultValue) {
+      Long value = Long.getLong(name);
+      return (value == null || value <= 0) ? defaultValue : value;
+  }
+
+  private static final long DEFAULT_STRING_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.string.length", 100L * 1024 * 1024);
+  private static final long DEFAULT_CONTAINER_LENGTH_LIMIT =
+      getPositiveLongProperty("thrift.max.container.length", 1_000_000L);
+
+  static {
+      LOGGER.info("TJSONProtocol limits: stringLength={} bytes, containerLength={} elements",
+                  DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
+  }
 
   private static final byte[] getTypeNameForTypeID(byte typeID)
     throws TException {
@@ -640,6 +660,10 @@ public class TJSONProtocol extends TProtocol {
     }
     readJSONSyntaxChar(QUOTE);
     while (true) {
+      if (DEFAULT_STRING_LENGTH_LIMIT > 0 && arr.len() > DEFAULT_STRING_LENGTH_LIMIT) {
+        throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+            "JSON string length " + arr.len() + " exceeds limit " + DEFAULT_STRING_LENGTH_LIMIT);
+      }
       byte ch = reader_.read();
       if (ch == QUOTE[0]) {
         break;
@@ -815,6 +839,17 @@ public class TJSONProtocol extends TProtocol {
     return result;
   }
 
+  private void checkContainerReadLength(int length) throws TProtocolException {
+    if (length < 0) {
+      throw new TProtocolException(TProtocolException.NEGATIVE_SIZE,
+                                   "Negative length: " + length);
+    }
+    if (DEFAULT_CONTAINER_LENGTH_LIMIT > 0 && length > DEFAULT_CONTAINER_LENGTH_LIMIT) {
+      throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+                                   "Length exceeded max allowed: " + length);
+    }
+  }
+
   private void readJSONObjectStart() throws TException {
     context_.read();
     readJSONSyntaxChar(LBRACE);
@@ -894,6 +929,7 @@ public class TJSONProtocol extends TProtocol {
     byte keyType = getTypeIDForTypeName(readJSONString(false).get());
     byte valueType = getTypeIDForTypeName(readJSONString(false).get());
     int size = (int)readJSONInteger();
+    checkContainerReadLength(size);
     readJSONObjectStart();
     return new TMap(keyType, valueType, size);
   }
@@ -909,6 +945,7 @@ public class TJSONProtocol extends TProtocol {
     readJSONArrayStart();
     byte elemType = getTypeIDForTypeName(readJSONString(false).get());
     int size = (int)readJSONInteger();
+    checkContainerReadLength(size);
     return new TList(elemType, size);
   }
 
@@ -922,6 +959,7 @@ public class TJSONProtocol extends TProtocol {
     readJSONArrayStart();
     byte elemType = getTypeIDForTypeName(readJSONString(false).get());
     int size = (int)readJSONInteger();
+    checkContainerReadLength(size);
     return new TSet(elemType, size);
   }
 
