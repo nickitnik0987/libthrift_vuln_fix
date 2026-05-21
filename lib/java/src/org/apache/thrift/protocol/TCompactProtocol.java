@@ -600,7 +600,6 @@ public class TCompactProtocol extends TProtocol {
   public TMap readMapBegin() throws TException {
     int size = readVarint32();
     checkContainerReadLength(size);
-    countConsumedMessageBytes((long) size * 2);
     byte keyAndValueType = size == 0 ? 0 : readByte();
     return new TMap(getTType((byte)(keyAndValueType >> 4)), getTType((byte)(keyAndValueType & 0xf)), size);
   }
@@ -618,7 +617,6 @@ public class TCompactProtocol extends TProtocol {
       size = readVarint32();
     }
     checkContainerReadLength(size);
-    countConsumedMessageBytes(size);
     byte type = getTType(size_and_type);
     return new TList(type, size);
   }
@@ -659,6 +657,7 @@ public class TCompactProtocol extends TProtocol {
       trans_.readAll(temp, 0, 1);
       b = temp[0];
     }
+    countConsumedMessageBytes(1);
     return b;
   }
 
@@ -688,6 +687,7 @@ public class TCompactProtocol extends TProtocol {
    */
   public double readDouble() throws TException {
     trans_.readAll(temp, 0, 8);
+    countConsumedMessageBytes(8);
     return Double.longBitsToDouble(bytesToLong(temp));
   }
 
@@ -809,6 +809,7 @@ public class TCompactProtocol extends TProtocol {
         off++;
       }
       trans_.consumeBuffer(off+1);
+      countConsumedMessageBytes(off+1);
     } else {
       while (true) {
         byte b = readByte();
@@ -839,6 +840,7 @@ public class TCompactProtocol extends TProtocol {
         off++;
       }
       trans_.consumeBuffer(off+1);
+      countConsumedMessageBytes(off+1);
     } else {
       while (true) {
         byte b = readByte();
