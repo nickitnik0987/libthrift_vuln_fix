@@ -115,10 +115,12 @@ public class TJSONProtocol extends TProtocol {
       getPositiveLongProperty("thrift.max.string.length", 100L * 1024 * 1024);
   private static final long DEFAULT_CONTAINER_LENGTH_LIMIT =
       getPositiveLongProperty("thrift.max.container.length", 1_000_000L);
+  private static final long DEFAULT_MAX_MESSAGE_SIZE =
+      getPositiveLongProperty("thrift.max.message.size", 100L * 1024 * 1024); // 100 MB
 
   static {
-      LOGGER.info("TJSONProtocol limits: stringLength={} bytes, containerLength={} elements",
-                  DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT);
+      LOGGER.info("TJSONProtocol limits: stringLength={} bytes, containerLength={} elements, maxMessageSize={} bytes",
+                  DEFAULT_STRING_LENGTH_LIMIT, DEFAULT_CONTAINER_LENGTH_LIMIT, DEFAULT_MAX_MESSAGE_SIZE);
   }
 
   private static final byte[] getTypeNameForTypeID(byte typeID)
@@ -316,6 +318,8 @@ public class TJSONProtocol extends TProtocol {
 
   // Write out the TField names as a string instead of the default integer value
   private boolean fieldNamesAsString_ = false;
+
+  private long consumedMessageBytes_;
 
   // Push a new JSON context onto the stack.
   private void pushContext(JSONBaseContext c) {
@@ -718,6 +722,7 @@ public class TJSONProtocol extends TProtocol {
       }
       arr.write(ch);
     }
+    countConsumedMessageBytes(arr.len());
     return arr;
   }
 
@@ -839,6 +844,15 @@ public class TJSONProtocol extends TProtocol {
     return result;
   }
 
+  private void countConsumedMessageBytes(long numBytes) throws TProtocolException {
+      consumedMessageBytes_ += numBytes;
+      if (DEFAULT_MAX_MESSAGE_SIZE > 0 && consumedMessageBytes_ > DEFAULT_MAX_MESSAGE_SIZE) {
+          throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+              "Cumulative message size " + consumedMessageBytes_
+              + " exceeds limit " + DEFAULT_MAX_MESSAGE_SIZE);
+      }
+  }
+
   private void checkContainerReadLength(int length) throws TProtocolException {
     if (length < 0) {
       throw new TProtocolException(TProtocolException.NEGATIVE_SIZE,
@@ -874,6 +888,7 @@ public class TJSONProtocol extends TProtocol {
 
   @Override
   public TMessage readMessageBegin() throws TException {
+    consumedMessageBytes_ = 0;
     resetContext(); // THRIFT-3743
     readJSONArrayStart();
     if (readJSONInteger() != VERSION) {
