@@ -305,7 +305,6 @@ public class TBinaryProtocol extends TProtocol {
   public TMap readMapBegin() throws TException {
     TMap map = new TMap(readByte(), readByte(), readI32());
     checkContainerReadLength(map.size);
-    countConsumedMessageBytes((long) map.size * 2);
     return map;
   }
 
@@ -316,7 +315,6 @@ public class TBinaryProtocol extends TProtocol {
   public TList readListBegin() throws TException {
     TList list = new TList(readByte(), readI32());
     checkContainerReadLength(list.size);
-    countConsumedMessageBytes(list.size);
     return list;
   }
 
@@ -327,7 +325,6 @@ public class TBinaryProtocol extends TProtocol {
   public TSet readSetBegin() throws TException {
     TSet set = new TSet(readByte(), readI32());
     checkContainerReadLength(set.size);
-    countConsumedMessageBytes(set.size);
     return set;
   }
 
@@ -341,13 +338,16 @@ public class TBinaryProtocol extends TProtocol {
 
   @Override
   public byte readByte() throws TException {
+    byte b;
     if (trans_.getBytesRemainingInBuffer() >= 1) {
-      byte b = trans_.getBuffer()[trans_.getBufferPosition()];
+      b = trans_.getBuffer()[trans_.getBufferPosition()];
       trans_.consumeBuffer(1);
-      return b;
+    } else {
+      readAll(inoutTemp, 0, 1);
+      b = inoutTemp[0];
     }
-    readAll(inoutTemp, 0, 1);
-    return inoutTemp[0];
+    countConsumedMessageBytes(1);
+    return b;
   }
 
   @Override
@@ -363,6 +363,7 @@ public class TBinaryProtocol extends TProtocol {
       readAll(inoutTemp, 0, 2);
     }
 
+    countConsumedMessageBytes(2);
     return
       (short)
       (((buf[off] & 0xff) << 8) |
@@ -381,6 +382,7 @@ public class TBinaryProtocol extends TProtocol {
     } else {
       readAll(inoutTemp, 0, 4);
     }
+    countConsumedMessageBytes(4);
     return
       ((buf[off] & 0xff) << 24) |
       ((buf[off+1] & 0xff) << 16) |
@@ -401,6 +403,7 @@ public class TBinaryProtocol extends TProtocol {
       readAll(inoutTemp, 0, 8);
     }
 
+    countConsumedMessageBytes(8);
     return
       ((long)(buf[off]   & 0xff) << 56) |
       ((long)(buf[off+1] & 0xff) << 48) |
