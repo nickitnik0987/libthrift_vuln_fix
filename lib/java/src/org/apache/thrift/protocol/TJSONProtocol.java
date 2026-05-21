@@ -370,6 +370,7 @@ public class TJSONProtocol extends TProtocol {
       throw new TProtocolException(TProtocolException.INVALID_DATA,
                                    "Unexpected character:" + (char)ch);
     }
+    countConsumedMessageBytes(1);
   }
 
   // Convert a byte containing a hex char ('0'-'9' or 'a'-'f') into its
@@ -751,6 +752,8 @@ public class TJSONProtocol extends TProtocol {
 
   // Read in a sequence of characters that are all valid in JSON numbers. Does
   // not do a complete regex check to validate that this is actually a number.
+  private static final int MAX_NUMERIC_CHARS = 32;
+
   private String readJSONNumericChars() throws TException {
     StringBuilder strbld = new StringBuilder();
     while (true) {
@@ -758,8 +761,13 @@ public class TJSONProtocol extends TProtocol {
       if (!isJSONNumeric(ch)) {
         break;
       }
+      if (strbld.length() >= MAX_NUMERIC_CHARS) {
+        throw new TProtocolException(TProtocolException.SIZE_LIMIT,
+            "Numeric value exceeds max length: " + MAX_NUMERIC_CHARS);
+      }
       strbld.append((char)reader_.read());
     }
+    countConsumedMessageBytes(strbld.length());
     return strbld.toString();
   }
 
